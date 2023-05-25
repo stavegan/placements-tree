@@ -1,0 +1,7 @@
+[package]
+name = "placements-tree"
+version = "0.1.0"
+authors = ["Kirill Pavkin"]
+readme = "README.md"
+license-file = "LICENSE"
+edition = "2021"
