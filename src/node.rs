@@ -35,7 +35,7 @@ impl<D> Node<D> {
         })
     }
 
-    pub fn root(n: usize, k: usize, key: usize) -> NonNull<Self>
+    pub fn root(n: usize, k: usize, key: usize) -> Box<Self>
     where
         D: Default,
     {
@@ -51,7 +51,7 @@ impl<D> Node<D> {
             }
             root.finish(key);
         }
-        NonNull::from(Box::leak(root))
+        root
     }
 
     unsafe fn insert(&mut self, key: usize, k: usize)
@@ -165,26 +165,24 @@ impl<D> Node<D> {
     }
 }
 
-impl<W> Fill<Vec<LinkedList<NonNull<Node<W>>>>> for Node<W> {
-    fn fill(&self, vertices: &mut Vec<LinkedList<NonNull<Node<W>>>>) {
-        vertices[self.key].push_back(NonNull::from(self));
-        for child in self.children.iter() {
-            unsafe {
+impl<D> Fill<Vec<LinkedList<NonNull<Node<D>>>>> for Node<D> {
+    fn fill(&self, vertices: &mut Vec<LinkedList<NonNull<Node<D>>>>) {
+        unsafe {
+            vertices[self.key].push_back(NonNull::from(self));
+            for child in self.children.iter() {
                 child.as_ref().fill(vertices);
             }
         }
     }
 }
 
-impl<W> Fill<Vec<Vec<LinkedList<NonNull<Node<W>>>>>> for Node<W> {
-    fn fill(&self, edges: &mut Vec<Vec<LinkedList<NonNull<Node<W>>>>>) {
-        if let Some(parent) = self.parent {
-            unsafe {
+impl<D> Fill<Vec<Vec<LinkedList<NonNull<Node<D>>>>>> for Node<D> {
+    fn fill(&self, edges: &mut Vec<Vec<LinkedList<NonNull<Node<D>>>>>) {
+        unsafe {
+            if let Some(parent) = self.parent {
                 edges[parent.as_ref().key][self.key].push_back(NonNull::from(self));
             }
-        }
-        for child in self.children.iter() {
-            unsafe {
+            for child in self.children.iter() {
                 child.as_ref().fill(edges);
             }
         }
@@ -208,8 +206,7 @@ mod tests {
 
         unsafe {
             assert_eq!(
-                root.as_ref()
-                    .placements()
+                root.placements()
                     .into_iter()
                     .map(|placement| placement.into_iter().collect::<Vec<_>>())
                     .collect::<Vec<_>>(),
@@ -221,8 +218,7 @@ mod tests {
 
         unsafe {
             assert_eq!(
-                root.as_ref()
-                    .placements()
+                root.placements()
                     .into_iter()
                     .map(|placement| placement.into_iter().collect::<Vec<_>>())
                     .collect::<Vec<_>>(),
@@ -234,8 +230,7 @@ mod tests {
 
         unsafe {
             assert_eq!(
-                root.as_ref()
-                    .placements()
+                root.placements()
                     .into_iter()
                     .map(|placement| placement.into_iter().collect::<Vec<_>>())
                     .collect::<Vec<_>>(),
@@ -247,8 +242,7 @@ mod tests {
 
         unsafe {
             assert_eq!(
-                root.as_ref()
-                    .placements()
+                root.placements()
                     .into_iter()
                     .map(|placement| placement.into_iter().collect::<Vec<_>>())
                     .collect::<Vec<_>>(),
@@ -267,8 +261,7 @@ mod tests {
 
         unsafe {
             assert_eq!(
-                root.as_ref()
-                    .placements()
+                root.placements()
                     .into_iter()
                     .map(|placement| placement.into_iter().collect::<Vec<_>>())
                     .collect::<Vec<_>>(),
@@ -308,8 +301,7 @@ mod tests {
 
         unsafe {
             assert_eq!(
-                root.as_ref()
-                    .placements()
+                root.placements()
                     .into_iter()
                     .map(|placement| placement.into_iter().collect::<Vec<_>>())
                     .collect::<Vec<_>>(),
@@ -321,8 +313,7 @@ mod tests {
 
         unsafe {
             assert_eq!(
-                root.as_ref()
-                    .placements()
+                root.placements()
                     .into_iter()
                     .map(|placement| placement.into_iter().collect::<Vec<_>>())
                     .collect::<Vec<_>>(),
@@ -334,8 +325,7 @@ mod tests {
 
         unsafe {
             assert_eq!(
-                root.as_ref()
-                    .placements()
+                root.placements()
                     .into_iter()
                     .map(|placement| placement.into_iter().collect::<Vec<_>>())
                     .collect::<Vec<_>>(),
@@ -360,8 +350,7 @@ mod tests {
 
         unsafe {
             assert_eq!(
-                root.as_ref()
-                    .placements()
+                root.placements()
                     .into_iter()
                     .map(|placement| placement.into_iter().collect::<Vec<_>>())
                     .collect::<Vec<_>>(),
@@ -401,8 +390,7 @@ mod tests {
 
         unsafe {
             assert_eq!(
-                root.as_ref()
-                    .placements()
+                root.placements()
                     .into_iter()
                     .map(|placement| placement.into_iter().collect::<Vec<_>>())
                     .collect::<Vec<_>>(),
@@ -414,8 +402,7 @@ mod tests {
 
         unsafe {
             assert_eq!(
-                root.as_ref()
-                    .placements()
+                root.placements()
                     .into_iter()
                     .map(|placement| placement.into_iter().collect::<Vec<_>>())
                     .collect::<Vec<_>>(),
@@ -429,10 +416,7 @@ mod tests {
         let root = Node::<()>::root(4, 2, 0);
 
         let mut vertices = vec![LinkedList::new(); 5];
-
-        unsafe {
-            root.as_ref().fill(&mut vertices);
-        }
+        root.fill(&mut vertices);
 
         assert_eq!(vertices[0].len(), 13);
         assert_eq!(vertices[1].len(), 4);
@@ -454,10 +438,7 @@ mod tests {
         let root = Node::<()>::root(4, 2, 0);
 
         let mut edges = vec![vec![LinkedList::new(); 5]; 5];
-
-        unsafe {
-            root.as_ref().fill(&mut edges);
-        }
+        root.fill(&mut edges);
 
         assert_eq!(edges[0][0].len(), 0);
         assert_eq!(edges[0][1].len(), 1);
@@ -525,7 +506,7 @@ mod tests {
         let edges = vec![vec![0, 1, 2], vec![3, 0, 4], vec![5, 6, 0]];
 
         unsafe {
-            assert_eq!(root.as_mut().recalculate(&vertices, &edges).0, 11);
+            assert_eq!(root.recalculate(&vertices, &edges).0, 11);
         }
     }
 }

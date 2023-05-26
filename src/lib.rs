@@ -11,7 +11,7 @@ use std::collections::LinkedList;
 use std::ptr::NonNull;
 
 pub struct PlacementsTree<V, E, D> {
-    _root: NonNull<Node<D>>,
+    _root: Box<Node<D>>,
     vertices: Vec<V>,
     vertices_idx: Vec<LinkedList<NonNull<Node<D>>>>,
     edges: Vec<Vec<E>>,
@@ -31,14 +31,10 @@ impl<V, E, D> PlacementsTree<V, E, D> {
         let root = Node::root(n, k, key);
         let vertices = vec![V::default(); n + 1];
         let mut vertices_idx = vec![LinkedList::new(); n + 1];
-        unsafe {
-            root.as_ref().fill(&mut vertices_idx);
-        }
+        root.fill(&mut vertices_idx);
         let edges = vec![vec![E::default(); n + 1]; n + 1];
         let mut edges_idx = vec![vec![LinkedList::new(); n + 1]; n + 1];
-        unsafe {
-            root.as_ref().fill(&mut edges_idx);
-        }
+        root.fill(&mut edges_idx);
         Self {
             _root: root,
             vertices,
