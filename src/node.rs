@@ -163,7 +163,9 @@ impl<D> Node<D> {
 
 impl<D> Fill<Vec<LinkedList<NonNull<Node<D>>>>> for Node<D> {
     fn fill(&self, vertices: &mut Vec<LinkedList<NonNull<Node<D>>>>) {
-        vertices[self.key].push_back(NonNull::from(self));
+        if !self.children.is_empty() {
+            vertices[self.key].push_back(NonNull::from(self));
+        }
         for child in self.children.iter() {
             child.fill(vertices);
         }
@@ -172,13 +174,13 @@ impl<D> Fill<Vec<LinkedList<NonNull<Node<D>>>>> for Node<D> {
 
 impl<D> Fill<Vec<Vec<LinkedList<NonNull<Node<D>>>>>> for Node<D> {
     fn fill(&self, edges: &mut Vec<Vec<LinkedList<NonNull<Node<D>>>>>) {
-        unsafe {
-            if let Some(parent) = self.parent {
+        if let Some(parent) = self.parent {
+            unsafe {
                 edges[parent.as_ref().key][self.key].push_back(NonNull::from(self));
             }
-            for child in self.children.iter() {
-                child.fill(edges);
-            }
+        }
+        for child in self.children.iter() {
+            child.fill(edges);
         }
     }
 }
@@ -390,7 +392,7 @@ mod tests {
         let mut vertices = vec![LinkedList::new(); 5];
         root.fill(&mut vertices);
 
-        assert_eq!(vertices[0].len(), 13);
+        assert_eq!(vertices[0].len(), 1);
         assert_eq!(vertices[1].len(), 4);
         assert_eq!(vertices[2].len(), 4);
         assert_eq!(vertices[3].len(), 4);
