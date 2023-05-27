@@ -86,24 +86,12 @@ impl<V, E, D> PlacementsTree<V, E, D> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::cmp::Ordering;
 
-    #[derive(Default, PartialEq)]
-    struct Distance(u64);
+    #[derive(Default, PartialEq, Eq, PartialOrd, Debug)]
+    struct Distance(i64);
 
-    impl PartialOrd for Distance {
-        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-            match (self.0, other.0) {
-                (this, other) if this > other => Some(Ordering::Less),
-                (this, other) if this == other => Some(Ordering::Equal),
-                (this, other) if this < other => Some(Ordering::Greater),
-                _ => None,
-            }
-        }
-    }
-
-    impl Recalculate<u64, u64> for Distance {
-        fn recalculate(&self, vertex: &u64, edge: &u64) -> Self {
+    impl Recalculate<i64, i64> for Distance {
+        fn recalculate(&self, vertex: &i64, edge: &i64) -> Self {
             Self(self.0 + *vertex + *edge)
         }
     }
@@ -111,48 +99,48 @@ mod tests {
     #[test]
     #[should_panic(expected = "assertion failed: key <= n")]
     fn new_panicked_test() {
-        PlacementsTree::<u64, u64, Distance>::new(2, 2, 3);
+        PlacementsTree::<i64, i64, Distance>::new(2, 2, 3);
     }
 
     #[test]
     fn update_test() {
-        let mut ptree = PlacementsTree::<u64, u64, Distance>::new(2, 2, 0);
-        assert_eq!(ptree.update_vertex(0, 1).unwrap().0, 1);
-        assert_eq!(ptree.update_vertex(1, 1).unwrap().0, 2);
-        assert_eq!(ptree.update_vertex(2, 1).unwrap().0, 3);
-        assert_eq!(ptree.update_edge(0, 1, 1).unwrap().0, 4);
-        assert_eq!(ptree.update_edge(0, 2, 2).unwrap().0, 5);
-        assert_eq!(ptree.update_edge(1, 0, 3).unwrap().0, 8);
-        assert_eq!(ptree.update_edge(1, 2, 4).unwrap().0, 8);
-        assert_eq!(ptree.update_edge(2, 0, 5).unwrap().0, 13);
-        assert_eq!(ptree.update_edge(2, 1, 6).unwrap().0, 14);
+        let mut ptree = PlacementsTree::<i64, i64, Distance>::new(2, 2, 0);
+        assert_eq!(*ptree.update_vertex(1, 1).unwrap(), Distance(1));
+        assert_eq!(*ptree.update_vertex(2, 1).unwrap(), Distance(2));
+        assert_eq!(*ptree.update_edge(0, 1, 1).unwrap(), Distance(3));
+        assert_eq!(*ptree.update_edge(0, 2, 2).unwrap(), Distance(4));
+        assert_eq!(*ptree.update_edge(1, 0, 3).unwrap(), Distance(7));
+        assert_eq!(*ptree.update_edge(1, 2, 4).unwrap(), Distance(7));
+        assert_eq!(*ptree.update_edge(2, 0, 5).unwrap(), Distance(12));
+        assert_eq!(*ptree.update_edge(2, 1, 6).unwrap(), Distance(13));
+        assert_eq!(*ptree.update_vertex(0, 1).unwrap(), Distance(13));
     }
 
     #[test]
     #[should_panic(expected = "assertion failed: v <= self.n")]
     fn update_vertex_panicked_test() {
-        let mut ptree = PlacementsTree::<u64, u64, Distance>::new(2, 2, 0);
+        let mut ptree = PlacementsTree::<i64, i64, Distance>::new(2, 2, 0);
         ptree.update_vertex(3, 0);
     }
 
     #[test]
     #[should_panic(expected = "assertion failed: v <= self.n")]
     fn update_edge_panicked_1_test() {
-        let mut ptree = PlacementsTree::<u64, u64, Distance>::new(2, 2, 0);
+        let mut ptree = PlacementsTree::<i64, i64, Distance>::new(2, 2, 0);
         ptree.update_edge(3, 0, 0);
     }
 
     #[test]
     #[should_panic(expected = "assertion failed: u <= self.n")]
     fn update_edge_panicked_2_test() {
-        let mut ptree = PlacementsTree::<u64, u64, Distance>::new(2, 2, 0);
+        let mut ptree = PlacementsTree::<i64, i64, Distance>::new(2, 2, 0);
         ptree.update_edge(0, 3, 0);
     }
 
     #[test]
     #[should_panic(expected = "assertion failed: v != u")]
     fn update_edge_panicked_3_test() {
-        let mut ptree = PlacementsTree::<u64, u64, Distance>::new(2, 2, 0);
+        let mut ptree = PlacementsTree::<i64, i64, Distance>::new(2, 2, 0);
         ptree.update_edge(0, 0, 0);
     }
 }

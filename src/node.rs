@@ -100,12 +100,22 @@ impl<D> Node<D> {
     where
         D: Recalculate<V, E> + PartialOrd,
     {
-        let mut min = None;
-        for child in self.children.iter_mut() {
-            let recalculated = child.recalculate(vertices, edges);
-            min = min.filter(|min| *min < recalculated).or(Some(recalculated));
+        if self.children.is_empty() {
+            None
+        } else {
+            let mut children = self.children.iter_mut();
+            let mut shortest = children
+                .next()
+                .map(|child| child.recalculate(vertices, edges))
+                .unwrap();
+            for child in children {
+                let recalculated = child.recalculate(vertices, edges);
+                if recalculated < shortest {
+                    shortest = recalculated;
+                }
+            }
+            Some(shortest)
         }
-        min
     }
 
     pub unsafe fn recalculate<V, E>(&mut self, vertices: &Vec<V>, edges: &Vec<Vec<E>>) -> &D
@@ -123,17 +133,17 @@ impl<D> Node<D> {
             &self.val
         } else {
             let mut children = self.children.iter_mut();
-            let mut min = children
+            let mut shortest = children
                 .next()
                 .map(|child| child.recalculate(vertices, edges))
                 .unwrap();
             for child in children {
                 let recalculated = child.recalculate(vertices, edges);
-                if recalculated < min {
-                    min = recalculated;
+                if recalculated < shortest {
+                    shortest = recalculated;
                 }
             }
-            min
+            shortest
         }
     }
 
@@ -453,10 +463,10 @@ mod tests {
     #[test]
     fn recalculate_test() {
         #[derive(Default, PartialEq, Eq, PartialOrd, Debug)]
-        struct Distance(u64);
+        struct Distance(i64);
 
-        impl Recalculate<u64, u64> for Distance {
-            fn recalculate(&self, vertex: &u64, edge: &u64) -> Self {
+        impl Recalculate<i64, i64> for Distance {
+            fn recalculate(&self, vertex: &i64, edge: &i64) -> Self {
                 Self(self.0 + *vertex + *edge)
             }
         }
