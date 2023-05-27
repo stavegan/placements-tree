@@ -188,7 +188,6 @@ impl<D> Fill<Vec<Vec<LinkedList<NonNull<Node<D>>>>>> for Node<D> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::cmp::Ordering;
 
     #[test]
     #[should_panic(expected = "assertion failed: key <= n")]
@@ -453,19 +452,8 @@ mod tests {
 
     #[test]
     fn recalculate_test() {
-        #[derive(Default, PartialEq)]
+        #[derive(Default, PartialEq, Eq, PartialOrd, Debug)]
         struct Distance(u64);
-
-        impl PartialOrd for Distance {
-            fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-                match (self.0, other.0) {
-                    (this, other) if this > other => Some(Ordering::Less),
-                    (this, other) if this == other => Some(Ordering::Equal),
-                    (this, other) if this < other => Some(Ordering::Greater),
-                    _ => None,
-                }
-            }
-        }
 
         impl Recalculate<u64, u64> for Distance {
             fn recalculate(&self, vertex: &u64, edge: &u64) -> Self {
@@ -480,7 +468,7 @@ mod tests {
         let edges = vec![vec![0, 1, 2], vec![3, 0, 4], vec![5, 6, 0]];
 
         unsafe {
-            assert_eq!(root.recalculate(&vertices, &edges).0, 11);
+            assert_eq!(*root.recalculate(&vertices, &edges), Distance(10));
         }
     }
 }
