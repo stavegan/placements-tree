@@ -5,7 +5,7 @@ use std::ptr::NonNull;
 
 pub struct Node<D> {
     parent: Option<NonNull<Node<D>>>,
-    children: Vec<NonNull<Node<D>>>,
+    children: Vec<Box<Node<D>>>,
     key: usize,
     val: D,
 }
@@ -42,19 +42,17 @@ impl<D> Node<D> {
         assert!(key <= n);
         let k = k.min(n);
         let mut root = Self::new(key);
-        unsafe {
-            for key in 0..key {
-                root.insert(key, k);
-            }
-            for key in key + 1..=n {
-                root.insert(key, k);
-            }
-            root.finish(key);
+        for key in 0..key {
+            root.insert(key, k);
         }
+        for key in key + 1..=n {
+            root.insert(key, k);
+        }
+        root.finish(key);
         root
     }
 
-    unsafe fn insert(&mut self, key: usize, k: usize)
+    fn insert(&mut self, key: usize, k: usize)
     where
         D: Default,
     {
@@ -62,35 +60,34 @@ impl<D> Node<D> {
             let mut node = self.child(key);
             let mut index = self.children.len();
             for (i, child) in self.children.iter_mut().enumerate() {
-                if key < child.as_ref().key {
+                if key < child.key {
                     index = i;
                     break;
                 }
-                child.as_mut().insert(key, k - 1);
-                node.as_mut().insert(child.as_ref().key, k - 1);
+                child.insert(key, k - 1);
+                node.insert(child.key, k - 1);
             }
             if index < self.children.len() {
                 for child in self.children.iter_mut() {
-                    child.as_mut().insert(key, k - 1);
-                    node.as_mut().insert(child.as_ref().key, k - 1);
+                    child.insert(key, k - 1);
+                    node.insert(child.key, k - 1);
                 }
-                self.children.insert(index, NonNull::from(Box::leak(node)));
+                self.children.insert(index, node);
             } else {
-                self.children.insert(index, NonNull::from(Box::leak(node)));
+                self.children.insert(index, node);
             }
         }
     }
 
-    unsafe fn finish(&mut self, key: usize)
+    fn finish(&mut self, key: usize)
     where
         D: Default,
     {
         if self.children.is_empty() {
-            self.children
-                .insert(0, NonNull::from(Box::leak(self.child(key))));
+            self.children.insert(0, self.child(key));
         } else {
             for child in self.children.iter_mut() {
-                child.as_mut().finish(key);
+                child.finish(key);
             }
         }
     }
@@ -105,7 +102,7 @@ impl<D> Node<D> {
     {
         let mut min = None;
         for child in self.children.iter_mut() {
-            let recalculated = child.as_mut().recalculate(vertices, edges);
+            let recalculated = child.recalculate(vertices, edges);
             min = min.filter(|min| *min < recalculated).or(Some(recalculated));
         }
         min
@@ -128,10 +125,10 @@ impl<D> Node<D> {
             let mut children = self.children.iter_mut();
             let mut min = children
                 .next()
-                .map(|child| child.as_mut().recalculate(vertices, edges))
+                .map(|child| child.recalculate(vertices, edges))
                 .unwrap();
             for child in children {
-                let recalculated = child.as_mut().recalculate(vertices, edges);
+                let recalculated = child.recalculate(vertices, edges);
                 if recalculated < min {
                     min = recalculated;
                 }
@@ -141,7 +138,7 @@ impl<D> Node<D> {
     }
 
     #[cfg(test)]
-    unsafe fn placements(&self) -> LinkedList<LinkedList<usize>> {
+    fn placements(&self) -> LinkedList<LinkedList<usize>> {
         if self.children.is_empty() {
             LinkedList::from([LinkedList::from([self.key])])
         } else {
@@ -149,7 +146,6 @@ impl<D> Node<D> {
             for child in self.children.iter() {
                 placements.append(
                     &mut child
-                        .as_ref()
                         .placements()
                         .into_iter()
                         .map(|mut placements| {
@@ -167,11 +163,9 @@ impl<D> Node<D> {
 
 impl<D> Fill<Vec<LinkedList<NonNull<Node<D>>>>> for Node<D> {
     fn fill(&self, vertices: &mut Vec<LinkedList<NonNull<Node<D>>>>) {
-        unsafe {
-            vertices[self.key].push_back(NonNull::from(self));
-            for child in self.children.iter() {
-                child.as_ref().fill(vertices);
-            }
+        vertices[self.key].push_back(NonNull::from(self));
+        for child in self.children.iter() {
+            child.fill(vertices);
         }
     }
 }
@@ -183,7 +177,7 @@ impl<D> Fill<Vec<Vec<LinkedList<NonNull<Node<D>>>>>> for Node<D> {
                 edges[parent.as_ref().key][self.key].push_back(NonNull::from(self));
             }
             for child in self.children.iter() {
-                child.as_ref().fill(edges);
+                child.fill(edges);
             }
         }
     }
@@ -204,211 +198,189 @@ mod tests {
     fn permutations_test() {
         let root = Node::<()>::root(0, 0, 0);
 
-        unsafe {
-            assert_eq!(
-                root.placements()
-                    .into_iter()
-                    .map(|placement| placement.into_iter().collect::<Vec<_>>())
-                    .collect::<Vec<_>>(),
-                [[0, 0]]
-            );
-        }
+        assert_eq!(
+            root.placements()
+                .into_iter()
+                .map(|placement| placement.into_iter().collect::<Vec<_>>())
+                .collect::<Vec<_>>(),
+            [[0, 0]]
+        );
 
         let root = Node::<()>::root(1, 1, 0);
 
-        unsafe {
-            assert_eq!(
-                root.placements()
-                    .into_iter()
-                    .map(|placement| placement.into_iter().collect::<Vec<_>>())
-                    .collect::<Vec<_>>(),
-                [[0, 1, 0]]
-            );
-        }
+        assert_eq!(
+            root.placements()
+                .into_iter()
+                .map(|placement| placement.into_iter().collect::<Vec<_>>())
+                .collect::<Vec<_>>(),
+            [[0, 1, 0]]
+        );
 
         let root = Node::<()>::root(2, 2, 0);
 
-        unsafe {
-            assert_eq!(
-                root.placements()
-                    .into_iter()
-                    .map(|placement| placement.into_iter().collect::<Vec<_>>())
-                    .collect::<Vec<_>>(),
-                [[0, 1, 2, 0], [0, 2, 1, 0]]
-            );
-        }
+        assert_eq!(
+            root.placements()
+                .into_iter()
+                .map(|placement| placement.into_iter().collect::<Vec<_>>())
+                .collect::<Vec<_>>(),
+            [[0, 1, 2, 0], [0, 2, 1, 0]]
+        );
 
         let root = Node::<()>::root(3, 3, 0);
 
-        unsafe {
-            assert_eq!(
-                root.placements()
-                    .into_iter()
-                    .map(|placement| placement.into_iter().collect::<Vec<_>>())
-                    .collect::<Vec<_>>(),
-                [
-                    [0, 1, 2, 3, 0],
-                    [0, 1, 3, 2, 0],
-                    [0, 2, 1, 3, 0],
-                    [0, 2, 3, 1, 0],
-                    [0, 3, 1, 2, 0],
-                    [0, 3, 2, 1, 0],
-                ]
-            );
-        }
+        assert_eq!(
+            root.placements()
+                .into_iter()
+                .map(|placement| placement.into_iter().collect::<Vec<_>>())
+                .collect::<Vec<_>>(),
+            [
+                [0, 1, 2, 3, 0],
+                [0, 1, 3, 2, 0],
+                [0, 2, 1, 3, 0],
+                [0, 2, 3, 1, 0],
+                [0, 3, 1, 2, 0],
+                [0, 3, 2, 1, 0],
+            ]
+        );
 
         let root = Node::<()>::root(4, 4, 0);
 
-        unsafe {
-            assert_eq!(
-                root.placements()
-                    .into_iter()
-                    .map(|placement| placement.into_iter().collect::<Vec<_>>())
-                    .collect::<Vec<_>>(),
-                [
-                    [0, 1, 2, 3, 4, 0],
-                    [0, 1, 2, 4, 3, 0],
-                    [0, 1, 3, 2, 4, 0],
-                    [0, 1, 3, 4, 2, 0],
-                    [0, 1, 4, 2, 3, 0],
-                    [0, 1, 4, 3, 2, 0],
-                    [0, 2, 1, 3, 4, 0],
-                    [0, 2, 1, 4, 3, 0],
-                    [0, 2, 3, 1, 4, 0],
-                    [0, 2, 3, 4, 1, 0],
-                    [0, 2, 4, 1, 3, 0],
-                    [0, 2, 4, 3, 1, 0],
-                    [0, 3, 1, 2, 4, 0],
-                    [0, 3, 1, 4, 2, 0],
-                    [0, 3, 2, 1, 4, 0],
-                    [0, 3, 2, 4, 1, 0],
-                    [0, 3, 4, 1, 2, 0],
-                    [0, 3, 4, 2, 1, 0],
-                    [0, 4, 1, 2, 3, 0],
-                    [0, 4, 1, 3, 2, 0],
-                    [0, 4, 2, 1, 3, 0],
-                    [0, 4, 2, 3, 1, 0],
-                    [0, 4, 3, 1, 2, 0],
-                    [0, 4, 3, 2, 1, 0],
-                ]
-            );
-        }
+        assert_eq!(
+            root.placements()
+                .into_iter()
+                .map(|placement| placement.into_iter().collect::<Vec<_>>())
+                .collect::<Vec<_>>(),
+            [
+                [0, 1, 2, 3, 4, 0],
+                [0, 1, 2, 4, 3, 0],
+                [0, 1, 3, 2, 4, 0],
+                [0, 1, 3, 4, 2, 0],
+                [0, 1, 4, 2, 3, 0],
+                [0, 1, 4, 3, 2, 0],
+                [0, 2, 1, 3, 4, 0],
+                [0, 2, 1, 4, 3, 0],
+                [0, 2, 3, 1, 4, 0],
+                [0, 2, 3, 4, 1, 0],
+                [0, 2, 4, 1, 3, 0],
+                [0, 2, 4, 3, 1, 0],
+                [0, 3, 1, 2, 4, 0],
+                [0, 3, 1, 4, 2, 0],
+                [0, 3, 2, 1, 4, 0],
+                [0, 3, 2, 4, 1, 0],
+                [0, 3, 4, 1, 2, 0],
+                [0, 3, 4, 2, 1, 0],
+                [0, 4, 1, 2, 3, 0],
+                [0, 4, 1, 3, 2, 0],
+                [0, 4, 2, 1, 3, 0],
+                [0, 4, 2, 3, 1, 0],
+                [0, 4, 3, 1, 2, 0],
+                [0, 4, 3, 2, 1, 0],
+            ]
+        );
     }
 
     #[test]
     fn placements_test() {
         let root = Node::<()>::root(4, 0, 0);
 
-        unsafe {
-            assert_eq!(
-                root.placements()
-                    .into_iter()
-                    .map(|placement| placement.into_iter().collect::<Vec<_>>())
-                    .collect::<Vec<_>>(),
-                [[0, 0]]
-            );
-        }
+        assert_eq!(
+            root.placements()
+                .into_iter()
+                .map(|placement| placement.into_iter().collect::<Vec<_>>())
+                .collect::<Vec<_>>(),
+            [[0, 0]]
+        );
 
         let root = Node::<()>::root(4, 1, 0);
 
-        unsafe {
-            assert_eq!(
-                root.placements()
-                    .into_iter()
-                    .map(|placement| placement.into_iter().collect::<Vec<_>>())
-                    .collect::<Vec<_>>(),
-                [[0, 1, 0], [0, 2, 0], [0, 3, 0], [0, 4, 0]]
-            );
-        }
+        assert_eq!(
+            root.placements()
+                .into_iter()
+                .map(|placement| placement.into_iter().collect::<Vec<_>>())
+                .collect::<Vec<_>>(),
+            [[0, 1, 0], [0, 2, 0], [0, 3, 0], [0, 4, 0]]
+        );
 
         let root = Node::<()>::root(4, 2, 0);
 
-        unsafe {
-            assert_eq!(
-                root.placements()
-                    .into_iter()
-                    .map(|placement| placement.into_iter().collect::<Vec<_>>())
-                    .collect::<Vec<_>>(),
-                [
-                    [0, 1, 2, 0],
-                    [0, 1, 3, 0],
-                    [0, 1, 4, 0],
-                    [0, 2, 1, 0],
-                    [0, 2, 3, 0],
-                    [0, 2, 4, 0],
-                    [0, 3, 1, 0],
-                    [0, 3, 2, 0],
-                    [0, 3, 4, 0],
-                    [0, 4, 1, 0],
-                    [0, 4, 2, 0],
-                    [0, 4, 3, 0],
-                ]
-            );
-        }
+        assert_eq!(
+            root.placements()
+                .into_iter()
+                .map(|placement| placement.into_iter().collect::<Vec<_>>())
+                .collect::<Vec<_>>(),
+            [
+                [0, 1, 2, 0],
+                [0, 1, 3, 0],
+                [0, 1, 4, 0],
+                [0, 2, 1, 0],
+                [0, 2, 3, 0],
+                [0, 2, 4, 0],
+                [0, 3, 1, 0],
+                [0, 3, 2, 0],
+                [0, 3, 4, 0],
+                [0, 4, 1, 0],
+                [0, 4, 2, 0],
+                [0, 4, 3, 0],
+            ]
+        );
 
         let root = Node::<()>::root(4, 3, 0);
 
-        unsafe {
-            assert_eq!(
-                root.placements()
-                    .into_iter()
-                    .map(|placement| placement.into_iter().collect::<Vec<_>>())
-                    .collect::<Vec<_>>(),
-                [
-                    [0, 1, 2, 3, 0],
-                    [0, 1, 2, 4, 0],
-                    [0, 1, 3, 2, 0],
-                    [0, 1, 3, 4, 0],
-                    [0, 1, 4, 2, 0],
-                    [0, 1, 4, 3, 0],
-                    [0, 2, 1, 3, 0],
-                    [0, 2, 1, 4, 0],
-                    [0, 2, 3, 1, 0],
-                    [0, 2, 3, 4, 0],
-                    [0, 2, 4, 1, 0],
-                    [0, 2, 4, 3, 0],
-                    [0, 3, 1, 2, 0],
-                    [0, 3, 1, 4, 0],
-                    [0, 3, 2, 1, 0],
-                    [0, 3, 2, 4, 0],
-                    [0, 3, 4, 1, 0],
-                    [0, 3, 4, 2, 0],
-                    [0, 4, 1, 2, 0],
-                    [0, 4, 1, 3, 0],
-                    [0, 4, 2, 1, 0],
-                    [0, 4, 2, 3, 0],
-                    [0, 4, 3, 1, 0],
-                    [0, 4, 3, 2, 0],
-                ]
-            );
-        }
+        assert_eq!(
+            root.placements()
+                .into_iter()
+                .map(|placement| placement.into_iter().collect::<Vec<_>>())
+                .collect::<Vec<_>>(),
+            [
+                [0, 1, 2, 3, 0],
+                [0, 1, 2, 4, 0],
+                [0, 1, 3, 2, 0],
+                [0, 1, 3, 4, 0],
+                [0, 1, 4, 2, 0],
+                [0, 1, 4, 3, 0],
+                [0, 2, 1, 3, 0],
+                [0, 2, 1, 4, 0],
+                [0, 2, 3, 1, 0],
+                [0, 2, 3, 4, 0],
+                [0, 2, 4, 1, 0],
+                [0, 2, 4, 3, 0],
+                [0, 3, 1, 2, 0],
+                [0, 3, 1, 4, 0],
+                [0, 3, 2, 1, 0],
+                [0, 3, 2, 4, 0],
+                [0, 3, 4, 1, 0],
+                [0, 3, 4, 2, 0],
+                [0, 4, 1, 2, 0],
+                [0, 4, 1, 3, 0],
+                [0, 4, 2, 1, 0],
+                [0, 4, 2, 3, 0],
+                [0, 4, 3, 1, 0],
+                [0, 4, 3, 2, 0],
+            ]
+        );
     }
 
     #[test]
     fn placements_keyed_test() {
         let root = Node::<()>::root(2, 2, 1);
 
-        unsafe {
-            assert_eq!(
-                root.placements()
-                    .into_iter()
-                    .map(|placement| placement.into_iter().collect::<Vec<_>>())
-                    .collect::<Vec<_>>(),
-                [[1, 0, 2, 1], [1, 2, 0, 1]]
-            );
-        }
+        assert_eq!(
+            root.placements()
+                .into_iter()
+                .map(|placement| placement.into_iter().collect::<Vec<_>>())
+                .collect::<Vec<_>>(),
+            [[1, 0, 2, 1], [1, 2, 0, 1]]
+        );
 
         let root = Node::<()>::root(2, 2, 2);
 
-        unsafe {
-            assert_eq!(
-                root.placements()
-                    .into_iter()
-                    .map(|placement| placement.into_iter().collect::<Vec<_>>())
-                    .collect::<Vec<_>>(),
-                [[2, 0, 1, 2], [2, 1, 0, 2]]
-            );
-        }
+        assert_eq!(
+            root.placements()
+                .into_iter()
+                .map(|placement| placement.into_iter().collect::<Vec<_>>())
+                .collect::<Vec<_>>(),
+            [[2, 0, 1, 2], [2, 1, 0, 2]]
+        );
     }
 
     #[test]
