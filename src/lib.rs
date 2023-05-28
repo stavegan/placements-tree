@@ -52,17 +52,30 @@ impl<V, E, D> PlacementsTree<V, E, D> {
     {
         assert!(v <= self.n);
         self.vertices[v].apply(diff);
-        let mut min = None;
-        for vertex in self.vertices_idx[v].iter_mut() {
-            if let Some(recalculated) = unsafe {
-                vertex
-                    .as_mut()
-                    .recalculate_children(&self.vertices, &self.edges)
-            } {
-                min = min.filter(|min| *min < recalculated).or(Some(recalculated));
+        if self.vertices_idx[v].is_empty() {
+            None
+        } else {
+            unsafe {
+                let mut vertices = self.vertices_idx[v].iter_mut();
+                let mut shortest = vertices
+                    .next()
+                    .map(|vertex| {
+                        vertex
+                            .as_mut()
+                            .recalculate_children(&self.vertices, &self.edges)
+                    })
+                    .unwrap();
+                for vertex in vertices {
+                    let recalculated = vertex
+                        .as_mut()
+                        .recalculate_children(&self.vertices, &self.edges);
+                    if recalculated < shortest {
+                        shortest = recalculated;
+                    }
+                }
+                Some(shortest)
             }
         }
-        min
     }
 
     pub fn update_edge<Diff>(&mut self, v: usize, u: usize, diff: Diff) -> Option<&D>
@@ -74,12 +87,24 @@ impl<V, E, D> PlacementsTree<V, E, D> {
         assert!(u <= self.n);
         assert!(v != u);
         self.edges[v][u].apply(diff);
-        let mut min = None;
-        for vertex in self.edges_idx[v][u].iter_mut() {
-            let recalculated = unsafe { vertex.as_mut().recalculate(&self.vertices, &self.edges) };
-            min = min.filter(|min| *min < recalculated).or(Some(recalculated));
+        if self.edges_idx[v][u].is_empty() {
+            None
+        } else {
+            unsafe {
+                let mut edges = self.edges_idx[v][u].iter_mut();
+                let mut shortest = edges
+                    .next()
+                    .map(|edge| edge.as_mut().recalculate(&self.vertices, &self.edges))
+                    .unwrap();
+                for edge in edges {
+                    let recalculated = edge.as_mut().recalculate(&self.vertices, &self.edges);
+                    if recalculated < shortest {
+                        shortest = recalculated;
+                    }
+                }
+                Some(shortest)
+            }
         }
-        min
     }
 }
 

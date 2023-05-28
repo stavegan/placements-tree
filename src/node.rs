@@ -96,26 +96,23 @@ impl<D> Node<D> {
         &mut self,
         vertices: &Vec<V>,
         edges: &Vec<Vec<E>>,
-    ) -> Option<&D>
+    ) -> &D
     where
         D: Recalculate<V, E> + PartialOrd,
     {
-        if self.children.is_empty() {
-            None
-        } else {
-            let mut children = self.children.iter_mut();
-            let mut shortest = children
-                .next()
-                .map(|child| child.recalculate(vertices, edges))
-                .unwrap();
-            for child in children {
-                let recalculated = child.recalculate(vertices, edges);
-                if recalculated < shortest {
-                    shortest = recalculated;
-                }
+        assert!(!self.children.is_empty());
+        let mut children = self.children.iter_mut();
+        let mut shortest = children
+            .next()
+            .map(|child| child.recalculate(vertices, edges))
+            .unwrap();
+        for child in children {
+            let recalculated = child.recalculate(vertices, edges);
+            if recalculated < shortest {
+                shortest = recalculated;
             }
-            Some(shortest)
         }
+        shortest
     }
 
     pub unsafe fn recalculate<V, E>(&mut self, vertices: &Vec<V>, edges: &Vec<Vec<E>>) -> &D
