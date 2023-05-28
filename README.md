@@ -12,13 +12,13 @@ The structure is used to quickly respond to queries to update vertices or edges 
 use placements_tree::PlacementsTree;
 
 fn main() {
-    let ptree = PlacementsTree::new(3, 2, 0);
+    let ptree = PlacementsTree::new(3, 2, 0, 0);
     let _shortest = ptree.update_vertex(1, 1);
     let _shortest = ptree.update_edge(0, 1, 2);
 }
 ```
 
-The `PlacementsTree::new(3, 2, 0)` creates a `3` by `2` tree of placements based on key `0`:
+The `PlacementsTree::new(3, 2, 0)` creates a `3` by `2` tree of placements based on key `0` with initial value `0`:
 
 ```
 0

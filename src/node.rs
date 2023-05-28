@@ -1,5 +1,6 @@
 use crate::fill::Fill;
-use crate::recalculate::Recalculate;
+use crate::recalc::Recalc;
+use crate::Max;
 use std::collections::LinkedList;
 use std::ptr::NonNull;
 
@@ -11,37 +12,37 @@ pub struct Node<D> {
 }
 
 impl<D> Node<D> {
-    fn new(key: usize) -> Box<Self>
+    fn new(key: usize, val: D) -> Box<Self>
     where
-        D: Default,
+        D: Max,
     {
         Box::new(Self {
             parent: None,
             children: Vec::new(),
             key,
-            val: D::default(),
+            val,
         })
     }
 
     fn child(&self, key: usize) -> Box<Self>
     where
-        D: Default,
+        D: Max,
     {
         Box::new(Self {
             parent: Some(NonNull::from(self)),
             children: Vec::new(),
             key,
-            val: D::default(),
+            val: D::max(),
         })
     }
 
-    pub fn root(n: usize, k: usize, key: usize) -> Box<Self>
+    pub fn root(n: usize, k: usize, key: usize, val: D) -> Box<Self>
     where
-        D: Default,
+        D: Max,
     {
         assert!(key <= n);
         let k = k.min(n);
-        let mut root = Self::new(key);
+        let mut root = Self::new(key, val);
         for key in 0..key {
             root.insert(key, k);
         }
@@ -54,7 +55,7 @@ impl<D> Node<D> {
 
     fn insert(&mut self, key: usize, k: usize)
     where
-        D: Default,
+        D: Max,
     {
         if k > 0 {
             let mut node = self.child(key);
@@ -81,7 +82,7 @@ impl<D> Node<D> {
 
     fn finish(&mut self, key: usize)
     where
-        D: Default,
+        D: Max,
     {
         if self.children.is_empty() {
             self.children.insert(0, self.child(key));
@@ -92,39 +93,35 @@ impl<D> Node<D> {
         }
     }
 
-    pub unsafe fn recalculate_children<V, E>(
-        &mut self,
-        vertices: &Vec<V>,
-        edges: &Vec<Vec<E>>,
-    ) -> &D
+    pub unsafe fn recalc_children<V, E>(&mut self, vertices: &Vec<V>, edges: &Vec<Vec<E>>) -> &D
     where
-        D: Recalculate<V, E> + PartialOrd,
+        D: Recalc<V, E> + PartialOrd,
     {
         assert!(!self.children.is_empty());
         let mut children = self.children.iter_mut();
         let mut shortest = children
             .next()
-            .map(|child| child.recalculate(vertices, edges))
+            .map(|child| child.recalc(vertices, edges))
             .unwrap();
         for child in children {
-            let recalculated = child.recalculate(vertices, edges);
-            if recalculated < shortest {
-                shortest = recalculated;
+            let recalced = child.recalc(vertices, edges);
+            if recalced < shortest {
+                shortest = recalced;
             }
         }
         shortest
     }
 
-    pub unsafe fn recalculate<V, E>(&mut self, vertices: &Vec<V>, edges: &Vec<Vec<E>>) -> &D
+    pub unsafe fn recalc<V, E>(&mut self, vertices: &Vec<V>, edges: &Vec<Vec<E>>) -> &D
     where
-        D: Recalculate<V, E> + PartialOrd,
+        D: Recalc<V, E> + PartialOrd,
     {
         if let Some(parent) = self.parent {
             let parent_key = parent.as_ref().key;
             let parent_val = &parent.as_ref().val;
             let vertex = &vertices[parent_key];
             let edge = &edges[parent_key][self.key];
-            self.val = parent_val.recalculate(vertex, edge);
+            self.val = parent_val.recalc(vertex, edge);
         }
         if self.children.is_empty() {
             &self.val
@@ -132,12 +129,12 @@ impl<D> Node<D> {
             let mut children = self.children.iter_mut();
             let mut shortest = children
                 .next()
-                .map(|child| child.recalculate(vertices, edges))
+                .map(|child| child.recalc(vertices, edges))
                 .unwrap();
             for child in children {
-                let recalculated = child.recalculate(vertices, edges);
-                if recalculated < shortest {
-                    shortest = recalculated;
+                let recalced = child.recalc(vertices, edges);
+                if recalced < shortest {
+                    shortest = recalced;
                 }
             }
             shortest
@@ -196,15 +193,34 @@ impl<D> Fill<Vec<Vec<LinkedList<NonNull<Node<D>>>>>> for Node<D> {
 mod tests {
     use super::*;
 
+    #[derive(PartialEq, Eq, PartialOrd, Debug)]
+    struct Dist(i64);
+
+    impl Max for Dist {
+        fn max() -> Self {
+            Dist(i64::MAX)
+        }
+    }
+
+    impl Recalc<i64, i64> for Dist {
+        fn recalc(&self, vertex: &i64, edge: &i64) -> Self {
+            if self.0 == i64::MAX {
+                Self(i64::MAX)
+            } else {
+                Self(self.0 + vertex + edge)
+            }
+        }
+    }
+
     #[test]
     #[should_panic(expected = "assertion failed: key <= n")]
     fn root_panicked_test() {
-        Node::<()>::root(2, 2, 3);
+        Node::root(2, 2, 3, Dist(0));
     }
 
     #[test]
     fn permutations_test() {
-        let root = Node::<()>::root(0, 0, 0);
+        let root = Node::root(0, 0, 0, Dist(0));
 
         assert_eq!(
             root.placements()
@@ -214,7 +230,7 @@ mod tests {
             [[0, 0]]
         );
 
-        let root = Node::<()>::root(1, 1, 0);
+        let root = Node::root(1, 1, 0, Dist(0));
 
         assert_eq!(
             root.placements()
@@ -224,7 +240,7 @@ mod tests {
             [[0, 1, 0]]
         );
 
-        let root = Node::<()>::root(2, 2, 0);
+        let root = Node::root(2, 2, 0, Dist(0));
 
         assert_eq!(
             root.placements()
@@ -234,7 +250,7 @@ mod tests {
             [[0, 1, 2, 0], [0, 2, 1, 0]]
         );
 
-        let root = Node::<()>::root(3, 3, 0);
+        let root = Node::root(3, 3, 0, Dist(0));
 
         assert_eq!(
             root.placements()
@@ -251,7 +267,7 @@ mod tests {
             ]
         );
 
-        let root = Node::<()>::root(4, 4, 0);
+        let root = Node::root(4, 4, 0, Dist(0));
 
         assert_eq!(
             root.placements()
@@ -289,7 +305,7 @@ mod tests {
 
     #[test]
     fn placements_test() {
-        let root = Node::<()>::root(4, 0, 0);
+        let root = Node::root(4, 0, 0, Dist(0));
 
         assert_eq!(
             root.placements()
@@ -299,7 +315,7 @@ mod tests {
             [[0, 0]]
         );
 
-        let root = Node::<()>::root(4, 1, 0);
+        let root = Node::root(4, 1, 0, Dist(0));
 
         assert_eq!(
             root.placements()
@@ -309,7 +325,7 @@ mod tests {
             [[0, 1, 0], [0, 2, 0], [0, 3, 0], [0, 4, 0]]
         );
 
-        let root = Node::<()>::root(4, 2, 0);
+        let root = Node::root(4, 2, 0, Dist(0));
 
         assert_eq!(
             root.placements()
@@ -332,7 +348,7 @@ mod tests {
             ]
         );
 
-        let root = Node::<()>::root(4, 3, 0);
+        let root = Node::root(4, 3, 0, Dist(0));
 
         assert_eq!(
             root.placements()
@@ -370,7 +386,7 @@ mod tests {
 
     #[test]
     fn placements_keyed_test() {
-        let root = Node::<()>::root(2, 2, 1);
+        let root = Node::root(2, 2, 1, Dist(0));
 
         assert_eq!(
             root.placements()
@@ -380,7 +396,7 @@ mod tests {
             [[1, 0, 2, 1], [1, 2, 0, 1]]
         );
 
-        let root = Node::<()>::root(2, 2, 2);
+        let root = Node::root(2, 2, 2, Dist(0));
 
         assert_eq!(
             root.placements()
@@ -393,7 +409,7 @@ mod tests {
 
     #[test]
     fn fill_vertices_test() {
-        let root = Node::<()>::root(4, 2, 0);
+        let root = Node::root(4, 2, 0, Dist(0));
 
         let mut vertices = vec![LinkedList::new(); 5];
         root.fill(&mut vertices);
@@ -415,7 +431,7 @@ mod tests {
 
     #[test]
     fn fill_edges_test() {
-        let root = Node::<()>::root(4, 2, 0);
+        let root = Node::root(4, 2, 0, Dist(0));
 
         let mut edges = vec![vec![LinkedList::new(); 5]; 5];
         root.fill(&mut edges);
@@ -458,24 +474,15 @@ mod tests {
     }
 
     #[test]
-    fn recalculate_test() {
-        #[derive(Default, PartialEq, Eq, PartialOrd, Debug)]
-        struct Distance(i64);
-
-        impl Recalculate<i64, i64> for Distance {
-            fn recalculate(&self, vertex: &i64, edge: &i64) -> Self {
-                Self(self.0 + *vertex + *edge)
-            }
-        }
-
-        let mut root = Node::<Distance>::root(2, 2, 0);
+    fn recalc_test() {
+        let mut root = Node::root(2, 2, 0, Dist(0));
 
         let vertices = vec![0, 0, 0];
 
         let edges = vec![vec![0, 1, 2], vec![3, 0, 4], vec![5, 6, 0]];
 
         unsafe {
-            assert_eq!(*root.recalculate(&vertices, &edges), Distance(10));
+            assert_eq!(*root.recalc(&vertices, &edges), Dist(10));
         }
     }
 }

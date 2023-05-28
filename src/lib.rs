@@ -1,12 +1,14 @@
 mod apply;
 mod fill;
+mod max;
 mod node;
-mod recalculate;
+mod recalc;
 
 pub use crate::apply::Apply;
 use crate::fill::Fill;
+pub use crate::max::Max;
 use crate::node::Node;
-pub use crate::recalculate::Recalculate;
+pub use crate::recalc::Recalc;
 use std::collections::LinkedList;
 use std::ptr::NonNull;
 
@@ -20,15 +22,15 @@ pub struct PlacementsTree<V, E, D> {
 }
 
 impl<V, E, D> PlacementsTree<V, E, D> {
-    pub fn new(n: usize, k: usize, key: usize) -> Self
+    pub fn new(n: usize, k: usize, key: usize, val: D) -> Self
     where
         V: Default + Clone,
         E: Default + Clone,
-        D: Default,
+        D: Max,
     {
         assert!(key <= n);
         let k = k.min(n);
-        let root = Node::root(n, k, key);
+        let root = Node::root(n, k, key, val);
         let vertices = vec![V::default(); n + 1];
         let mut vertices_idx = vec![LinkedList::new(); n + 1];
         root.fill(&mut vertices_idx);
@@ -48,7 +50,7 @@ impl<V, E, D> PlacementsTree<V, E, D> {
     pub fn update_vertex<Diff>(&mut self, v: usize, diff: Diff) -> Option<&D>
     where
         V: Apply<Diff>,
-        D: Recalculate<V, E> + PartialOrd,
+        D: Recalc<V, E> + PartialOrd,
     {
         assert!(v <= self.n);
         self.vertices[v].apply(diff);
@@ -59,18 +61,12 @@ impl<V, E, D> PlacementsTree<V, E, D> {
                 let mut vertices = self.vertices_idx[v].iter_mut();
                 let mut shortest = vertices
                     .next()
-                    .map(|vertex| {
-                        vertex
-                            .as_mut()
-                            .recalculate_children(&self.vertices, &self.edges)
-                    })
+                    .map(|vertex| vertex.as_mut().recalc_children(&self.vertices, &self.edges))
                     .unwrap();
                 for vertex in vertices {
-                    let recalculated = vertex
-                        .as_mut()
-                        .recalculate_children(&self.vertices, &self.edges);
-                    if recalculated < shortest {
-                        shortest = recalculated;
+                    let recalced = vertex.as_mut().recalc_children(&self.vertices, &self.edges);
+                    if recalced < shortest {
+                        shortest = recalced;
                     }
                 }
                 Some(shortest)
@@ -81,7 +77,7 @@ impl<V, E, D> PlacementsTree<V, E, D> {
     pub fn update_edge<Diff>(&mut self, v: usize, u: usize, diff: Diff) -> Option<&D>
     where
         E: Apply<Diff>,
-        D: Recalculate<V, E> + PartialOrd,
+        D: Recalc<V, E> + PartialOrd,
     {
         assert!(v <= self.n);
         assert!(u <= self.n);
@@ -94,12 +90,12 @@ impl<V, E, D> PlacementsTree<V, E, D> {
                 let mut edges = self.edges_idx[v][u].iter_mut();
                 let mut shortest = edges
                     .next()
-                    .map(|edge| edge.as_mut().recalculate(&self.vertices, &self.edges))
+                    .map(|edge| edge.as_mut().recalc(&self.vertices, &self.edges))
                     .unwrap();
                 for edge in edges {
-                    let recalculated = edge.as_mut().recalculate(&self.vertices, &self.edges);
-                    if recalculated < shortest {
-                        shortest = recalculated;
+                    let recalced = edge.as_mut().recalc(&self.vertices, &self.edges);
+                    if recalced < shortest {
+                        shortest = recalced;
                     }
                 }
                 Some(shortest)
@@ -112,60 +108,70 @@ impl<V, E, D> PlacementsTree<V, E, D> {
 mod tests {
     use super::*;
 
-    #[derive(Default, PartialEq, Eq, PartialOrd, Debug)]
-    struct Distance(i64);
+    #[derive(PartialEq, Eq, PartialOrd, Debug)]
+    struct Dist(i64);
 
-    impl Recalculate<i64, i64> for Distance {
-        fn recalculate(&self, vertex: &i64, edge: &i64) -> Self {
-            Self(self.0 + *vertex + *edge)
+    impl Max for Dist {
+        fn max() -> Self {
+            Dist(i64::MAX)
+        }
+    }
+
+    impl Recalc<i64, i64> for Dist {
+        fn recalc(&self, vertex: &i64, edge: &i64) -> Self {
+            if self.0 == i64::MAX {
+                Self(i64::MAX)
+            } else {
+                Self(self.0 + vertex + edge)
+            }
         }
     }
 
     #[test]
     #[should_panic(expected = "assertion failed: key <= n")]
     fn new_panicked_test() {
-        PlacementsTree::<i64, i64, Distance>::new(2, 2, 3);
+        PlacementsTree::<i64, i64, Dist>::new(2, 2, 3, Dist(0));
     }
 
     #[test]
     fn update_test() {
-        let mut ptree = PlacementsTree::<i64, i64, Distance>::new(2, 2, 0);
-        assert_eq!(*ptree.update_vertex(1, 1).unwrap(), Distance(1));
-        assert_eq!(*ptree.update_vertex(2, 1).unwrap(), Distance(2));
-        assert_eq!(*ptree.update_edge(0, 1, 1).unwrap(), Distance(3));
-        assert_eq!(*ptree.update_edge(0, 2, 2).unwrap(), Distance(4));
-        assert_eq!(*ptree.update_edge(1, 0, 3).unwrap(), Distance(7));
-        assert_eq!(*ptree.update_edge(1, 2, 4).unwrap(), Distance(7));
-        assert_eq!(*ptree.update_edge(2, 0, 5).unwrap(), Distance(12));
-        assert_eq!(*ptree.update_edge(2, 1, 6).unwrap(), Distance(13));
-        assert_eq!(*ptree.update_vertex(0, 1).unwrap(), Distance(13));
+        let mut ptree: PlacementsTree<i64, i64, Dist> = PlacementsTree::new(2, 2, 0, Dist(0));
+        assert_eq!(*ptree.update_vertex(1, 1).unwrap(), Dist::max());
+        assert_eq!(*ptree.update_vertex(2, 1).unwrap(), Dist::max());
+        assert_eq!(*ptree.update_edge(0, 1, 1).unwrap(), Dist(3));
+        assert_eq!(*ptree.update_edge(0, 2, 2).unwrap(), Dist(4));
+        assert_eq!(*ptree.update_edge(1, 0, 3).unwrap(), Dist(7));
+        assert_eq!(*ptree.update_edge(1, 2, 4).unwrap(), Dist(7));
+        assert_eq!(*ptree.update_edge(2, 0, 5).unwrap(), Dist(12));
+        assert_eq!(*ptree.update_edge(2, 1, 6).unwrap(), Dist(13));
+        assert_eq!(*ptree.update_vertex(0, 1).unwrap(), Dist(13));
     }
 
     #[test]
     #[should_panic(expected = "assertion failed: v <= self.n")]
     fn update_vertex_panicked_test() {
-        let mut ptree = PlacementsTree::<i64, i64, Distance>::new(2, 2, 0);
+        let mut ptree: PlacementsTree<i64, i64, Dist> = PlacementsTree::new(2, 2, 0, Dist(0));
         ptree.update_vertex(3, 0);
     }
 
     #[test]
     #[should_panic(expected = "assertion failed: v <= self.n")]
     fn update_edge_panicked_1_test() {
-        let mut ptree = PlacementsTree::<i64, i64, Distance>::new(2, 2, 0);
+        let mut ptree: PlacementsTree<i64, i64, Dist> = PlacementsTree::new(2, 2, 0, Dist(0));
         ptree.update_edge(3, 0, 0);
     }
 
     #[test]
     #[should_panic(expected = "assertion failed: u <= self.n")]
     fn update_edge_panicked_2_test() {
-        let mut ptree = PlacementsTree::<i64, i64, Distance>::new(2, 2, 0);
+        let mut ptree: PlacementsTree<i64, i64, Dist> = PlacementsTree::new(2, 2, 0, Dist(0));
         ptree.update_edge(0, 3, 0);
     }
 
     #[test]
     #[should_panic(expected = "assertion failed: v != u")]
     fn update_edge_panicked_3_test() {
-        let mut ptree = PlacementsTree::<i64, i64, Distance>::new(2, 2, 0);
+        let mut ptree: PlacementsTree<i64, i64, Dist> = PlacementsTree::new(2, 2, 0, Dist(0));
         ptree.update_edge(0, 0, 0);
     }
 }
