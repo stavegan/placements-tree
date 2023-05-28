@@ -52,7 +52,7 @@ The `PlacementsTree::new(4, 2, 0)` creates a `4` by `2` tree of placements based
         └── 0
 ```
 
-The `ptree.update_vertex(1, 1)` updates vertex `1` with value `1`, so the tree will be recalculated, returning the shortest distance:
+The `ptree.update_vertex(1, 1)` updates vertex `1` with value `1`, so the tree will be recalculated, returning the shortest distance of the recalculated paths:
 
 ```
 0
@@ -86,7 +86,7 @@ The `ptree.update_vertex(1, 1)` updates vertex `1` with value `1`, so the tree w
         └── 0
 ```
 
-The `ptree.update_edge(0, 1, 2)` updates edge from `0` to `1` with value `2`, so the tree will be recalculated, returning the shortest distance:
+The `ptree.update_edge(0, 1, 2)` updates edge from `0` to `1` with value `2`, so the tree will be recalculated, returning the shortest distance of the recalculated paths:
 
 ```
 0
