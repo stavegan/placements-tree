@@ -12,43 +12,30 @@ The structure is used to quickly respond to queries to update vertices or edges 
 use placements_tree::PlacementsTree;
 
 fn main() {
-    let ptree = PlacementsTree::new(4, 2, 0);
+    let ptree = PlacementsTree::new(3, 2, 0);
     let _shortest = ptree.update_vertex(1, 1);
     let _shortest = ptree.update_edge(0, 1, 2);
 }
 ```
 
-The `PlacementsTree::new(4, 2, 0)` creates a `4` by `2` tree of placements based on key `0`:
+The `PlacementsTree::new(3, 2, 0)` creates a `3` by `2` tree of placements based on key `0`:
 
 ```
 0
 ├── 1
 │   ├── 2
 │   │   └── 0
-│   ├── 3
-│   │   └── 0
-│   └── 4
+│   └── 3
 │       └── 0
 ├── 2
 │   ├── 1
 │   │   └── 0
-│   ├── 3
-│   │   └── 0
-│   └── 4
+│   └── 3
 │       └── 0
-├── 3
-│   ├── 1
-│   │   └── 0
-│   ├── 2
-│   │   └── 0
-│   └── 4
-│       └── 0
-└── 4
+└── 3
     ├── 1
     │   └── 0
-    ├── 2
-    │   └── 0
-    └── 3
+    └── 2
         └── 0
 ```
 
@@ -60,29 +47,16 @@ The `ptree.update_vertex(1, 1)` updates vertex `1` with value `1`, so the tree w
 │   '-- 2
 │   '   '-- 0
 │   '-- 3
-│   '   '-- 0
-│   '-- 4
 │       '-- 0
 ├── 2
 │   ├── 1
 │   │   '-- 0
-│   ├── 3
-│   │   └── 0
-│   └── 4
+│   └── 3
 │       └── 0
-├── 3
-│   ├── 1
-│   │   '-- 0
-│   ├── 2
-│   │   └── 0
-│   └── 4
-│       └── 0
-└── 4
+└── 3
     ├── 1
     │   '-- 0
-    ├── 2
-    │   └── 0
-    └── 3
+    └── 2
         └── 0
 ```
 
@@ -94,29 +68,16 @@ The `ptree.update_edge(0, 1, 2)` updates edge from `0` to `1` with value `2`, so
 │   '-- 2
 │   '   '-- 0
 │   '-- 3
-│   '   '-- 0
-│   '-- 4
 │       '-- 0
 ├── 2
 │   ├── 1
 │   │   └── 0
-│   ├── 3
-│   │   └── 0
-│   └── 4
+│   └── 3
 │       └── 0
-├── 3
-│   ├── 1
-│   │   └── 0
-│   ├── 2
-│   │   └── 0
-│   └── 4
-│       └── 0
-└── 4
+└── 3
     ├── 1
     │   └── 0
-    ├── 2
-    │   └── 0
-    └── 3
+    └── 2
         └── 0
 ```
 
