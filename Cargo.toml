@@ -2,6 +2,7 @@
 name = "placements-tree"
 version = "0.1.0"
 authors = ["Kirill Pavkin"]
+description = "Tree of Placements"
 readme = "README.md"
-license-file = "LICENSE"
+license = "MIT OR Apache-2.0"
 edition = "2021"
