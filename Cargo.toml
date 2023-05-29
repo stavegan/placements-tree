@@ -1,6 +1,6 @@
 [package]
 name = "placements-tree"
-version = "0.1.4"
+version = "0.1.5"
 authors = ["Kirill Pavkin"]
 description = "Tree of Placements"
 readme = "README.md"
