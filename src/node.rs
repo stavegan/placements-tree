@@ -204,8 +204,8 @@ mod tests {
 
     impl Recalc<i64, i64> for Dist {
         fn recalc(&self, vertex: &i64, edge: &i64) -> Self {
-            if self.0 == i64::MAX {
-                Self(i64::MAX)
+            if *self == Self::max() {
+                Self::max()
             } else {
                 Self(self.0 + vertex + edge)
             }
