@@ -18,7 +18,7 @@ fn main() {
 }
 ```
 
-The `PlacementsTree::new(3, 2, 0)` creates a `3` by `2` tree of placements based on key `0` with initial value `0`:
+The `PlacementsTree::new(3, 2, 0, 0)` creates a `3` by `2` tree of placements based on key `0` with initial value `0`:
 
 ```
 0
