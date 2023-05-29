@@ -7,9 +7,3 @@ impl<T> Apply<T> for T {
         *self = diff;
     }
 }
-
-impl<T> Apply<T> for Option<T> {
-    fn apply(&mut self, diff: T) {
-        *self = Some(diff);
-    }
-}
