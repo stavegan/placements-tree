@@ -1,5 +1,7 @@
 # Tree of Placements
 
+**I consent to the transfer of this crate to the first person who asks help@crates.io for it.**
+
 The `placements-tree` crate allows you to create an `n` to `k` tree of placements based on a `key` in the range `0..=n`.
 This `key` will be used as the root and leaves of the tree.
 So other vertices will be taken in the ranges `0..key` and `key + 1..=n`.
